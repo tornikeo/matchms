@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Literal
 import numpy as np
 from sparsestack import StackedSparseArray
 from matchms.typing import SpectrumType
@@ -62,7 +62,7 @@ class FingerprintSimilarity(BaseSimilarity):
     # Set output data type, e.g.  "float" or [("score", "float"), ("matches", "int")]
     score_datatype = np.float64
 
-    def __init__(self, similarity_measure: str = "jaccard",
+    def __init__(self, similarity_measure: Literal["cosine","dice","jaccard"] = "jaccard",
                  set_empty_scores: Union[float, int, str] = "nan"):
         """
 

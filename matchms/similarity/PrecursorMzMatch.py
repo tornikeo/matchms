@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 import numpy as np
 from sparsestack import StackedSparseArray
 from matchms.similarity.spectrum_similarity_functions import (
@@ -56,7 +56,7 @@ class PrecursorMzMatch(BaseSimilarity):
     is_commutative = True
     score_datatype = bool
 
-    def __init__(self, tolerance: float = 0.1, tolerance_type: str = "Dalton"):
+    def __init__(self, tolerance: float = 0.1, tolerance_type: Literal["Dalton", "ppm"] = "Dalton"):
         """
         Parameters
         ----------
