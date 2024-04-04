@@ -1,9 +1,54 @@
 from typing import List, Tuple
 import numba
+from numba import prange
 import numpy as np
 
+@numba.njit(
+        # 'void(float32, float32, int32, float32[:,:,:], float32[:,:,:],int32[:,:],float32[:,:,:])',
+        parallel=True,
+        fastmath=True,
+        nogil=True,
+)
+def cosine_greedy_kernel(
+        tolerance: float,
+        mz_power: float,
+        intensity_power: float,
 
-@numba.njit
+        references: np.ndarray,
+        queries: np.ndarray,
+        lens: np.ndarray,
+        
+        out: np.ndarray,
+    ):
+    for i in prange(len(references)):
+        rlen = lens[0, i]
+        if rlen == 0:
+            continue
+        rpeaks = references[i, :rlen]
+        for j, query in enumerate(queries):
+            qlen = lens[1, j]
+            if qlen == 0:
+                continue
+            qpeaks = query[:qlen]
+            matching_pairs = collect_peak_pairs(
+                rpeaks,
+                qpeaks,
+                tolerance,
+                shift=0.0, 
+                mz_power=mz_power,
+                intensity_power=intensity_power
+            )
+            if matching_pairs is None:
+                continue
+            
+            matching_pairs = matching_pairs[np.argsort(matching_pairs[:, 2], kind='mergesort')[::-1], :]
+            score, matches = score_best_matches(matching_pairs, 
+                                        rpeaks, qpeaks,
+                                        mz_power, intensity_power)
+            out['score'][i,j] = score
+            out['matches'][i,j] = matches
+
+@numba.njit(fastmath=True)
 def collect_peak_pairs(spec1: np.ndarray, spec2: np.ndarray,
                        tolerance: float, shift: float = 0, mz_power: float = 0.0,
                        intensity_power: float = 1.0):
@@ -44,7 +89,7 @@ def collect_peak_pairs(spec1: np.ndarray, spec2: np.ndarray,
     return np.array(matching_pairs.copy())
 
 
-@numba.njit
+@numba.njit(fastmath=True)
 def find_matches(spec1_mz: np.ndarray, spec2_mz: np.ndarray,
                  tolerance: float, shift: float = 0) -> List[Tuple[int, int]]:
     """Faster search for matching peaks.

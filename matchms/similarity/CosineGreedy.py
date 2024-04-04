@@ -1,9 +1,12 @@
 from typing import Tuple
 import numpy as np
-from matchms.typing import SpectrumType
+import numba
+from numba import njit, prange
+from matchms.typing import SpectrumType, List
 from .BaseSimilarity import BaseSimilarity
+from sparsestack import StackedSparseArray
 from .spectrum_similarity_functions import (collect_peak_pairs,
-                                            score_best_matches)
+                                            score_best_matches, cosine_greedy_kernel)
 
 
 class CosineGreedy(BaseSimilarity):
@@ -67,6 +70,87 @@ class CosineGreedy(BaseSimilarity):
         self.tolerance = tolerance
         self.mz_power = mz_power
         self.intensity_power = intensity_power
+
+    def matrix(self, references: List[SpectrumType], queries: List[SpectrumType],
+               array_type: str = "numpy",
+               is_symmetric: bool = False) -> np.ndarray:
+        """Optional: Provide optimized method to calculate an np.array of similarity scores
+        for given reference and query spectrums. If no method is added here, the following naive
+        implementation (i.e. a double for-loop) is used.
+
+        Parameters
+        ----------
+        references
+            List of reference objects
+        queries
+            List of query objects
+        array_type
+            Specify the output array type. Can be "numpy" or "sparse".
+            Default is "numpy" and will return a numpy array. "sparse" will return a COO-sparse array.
+        is_symmetric
+            Set to True when *references* and *queries* are identical (as for instance for an all-vs-all
+            comparison). By using the fact that score[i,j] = score[j,i] the calculation will be about
+            2x faster.
+        """
+        #pylint: disable=too-many-locals
+
+
+            #     if is_symmetric and self.is_commutative:
+            #             score = self.pair(reference, query)
+            #             if self.keep_score(score):
+            #                 idx_row += [i_ref, i_query]
+            #                 idx_col += [i_query, i_ref]
+            #                 scores += [score, score]
+            #     else:
+            #         for i_query, query in enumerate(queries[:n_cols]):
+            #             score = self.pair(reference, query)
+            #             if self.keep_score(score):
+            #                 idx_row.append(i_ref)
+            #                 idx_col.append(i_query)
+            #                 scores.append(score)
+            # return scores
+
+        def to_tensor(spectra: List[SpectrumType]) -> np.ndarray:
+            max_len = max(len(s.peaks) for s in spectra)
+            tensor = np.zeros((len(spectra), max_len, 2), dtype='float32')
+            lens = np.zeros((len(spectra)), dtype='int32')
+            for i, s in enumerate(spectra):
+                peaks = s.peaks.to_numpy
+                tensor[i, :len(s.peaks), :] = peaks
+                lens[i] = len(peaks)
+            return tensor, lens
+            
+        R, Q = len(references), len(queries)
+        scores_array = np.zeros((R, Q), dtype=self.score_datatype)
+
+        rtensor, rlen = to_tensor(references)
+        qtensor, qlen = to_tensor(queries)
+        lens = np.stack([rlen, qlen], axis=1)
+
+        cosine_greedy_kernel(
+            self.tolerance,
+            self.mz_power,
+            self.intensity_power,
+
+            rtensor,
+            qtensor,
+            lens,
+
+            scores_array
+        )
+        # idx_row = np.array(idx_row)
+        # idx_col = np.array(idx_col)
+        # scores_data = np.array(scores, dtype=self.score_datatype)
+        # TODO: make StackedSpareseArray the default and add fixed function to output different formats (with code below)
+        if array_type == "numpy":
+            # scores_array = np.zeros(shape=(n_rows, n_cols), dtype=self.score_datatype)
+            # scores_array[idx_row, idx_col] = scores_data.reshape(-1)
+            return scores_array
+        if array_type == "sparse":
+            scores_array = StackedSparseArray(R, Q)
+            scores_array.add_sparse_data(idx_row, idx_col, scores_data, "")
+            return scores_array
+        raise ValueError("array_type must be 'numpy' or 'sparse'.")
 
     def pair(self, reference: SpectrumType, query: SpectrumType) -> Tuple[float, int]:
         """Calculate cosine score between two spectra.
