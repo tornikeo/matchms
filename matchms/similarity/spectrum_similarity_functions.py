@@ -3,7 +3,7 @@ import numba
 import numpy as np
 
 
-@numba.njit
+# @numba.njit
 def collect_peak_pairs(spec1: np.ndarray, spec2: np.ndarray,
                        tolerance: float, shift: float = 0, mz_power: float = 0.0,
                        intensity_power: float = 1.0):
@@ -31,18 +31,13 @@ def collect_peak_pairs(spec1: np.ndarray, spec2: np.ndarray,
     matching_pairs : numpy array
         Array of found matching peaks.
     """
-    matches = find_matches(spec1[:, 0], spec2[:, 0], tolerance, shift)
-    idx1 = [x[0] for x in matches]
-    idx2 = [x[1] for x in matches]
+    matches = np.abs(spec1[:, 0, None] - (spec2[:, 0] + shift)) <= tolerance
+    idx1, idx2 = np.nonzero(matches)
     if len(idx1) == 0:
         return None
-    matching_pairs = []
-    for i, idx in enumerate(idx1):
-        power_prod_spec1 = (spec1[idx, 0] ** mz_power) * (spec1[idx, 1] ** intensity_power)
-        power_prod_spec2 = (spec2[idx2[i], 0] ** mz_power) * (spec2[idx2[i], 1] ** intensity_power)
-        matching_pairs.append([idx, idx2[i], power_prod_spec1 * power_prod_spec2])
-    return np.array(matching_pairs.copy())
-
+    pprod_spec1 = spec1[idx1, 0] ** mz_power * spec1[idx1, 1] ** intensity_power
+    pprod_spec2 = spec2[idx2, 0] ** mz_power * spec2[idx2, 1] ** intensity_power
+    return np.stack([idx1, idx2, pprod_spec1 * pprod_spec2], -1)
 
 @numba.njit
 def find_matches(spec1_mz: np.ndarray, spec2_mz: np.ndarray,
@@ -109,80 +104,34 @@ def score_best_matches(matching_pairs: np.ndarray, spec1: np.ndarray,
     score = score/(np.sum(spec1_power ** 2) ** 0.5 * np.sum(spec2_power ** 2) ** 0.5)
     return score, used_matches
 
-
-@numba.njit
 def number_matching(numbers_1, numbers_2, tolerance):
     """Find all pairs between numbers_1 and numbers_2 which are within tolerance.
     """
-    rows = []
-    cols = []
-    data = []
-    for i, number_1 in enumerate(numbers_1):
-        for j, number_2 in enumerate(numbers_2):
-            value = (abs(number_1 - number_2) <= tolerance)
-            if value:
-                data.append(value)
-                rows.append(i)
-                cols.append(j)
-    return np.array(rows), np.array(cols), np.array(data)
+    matching = np.abs(numbers_1[:, None] - numbers_2[None, :]) <= tolerance
+    rows, cols = np.nonzero(matching)
+    return rows, cols, np.full_like(rows, True)
 
-
-@numba.njit
 def number_matching_symmetric(numbers_1, tolerance):
     """Find all pairs between numbers_1 and numbers_1 which are within tolerance.
     """
-    rows = []
-    cols = []
-    data = []
-    for i, number_1 in enumerate(numbers_1):
-        for j in range(i, len(numbers_1)):
-            value = (abs(number_1 - numbers_1[j]) <= tolerance)
-            if value:
-                data.append(value)
-                rows.append(i)
-                cols.append(j)
-                if i != j:
-                    data.append(value)
-                    rows.append(j)
-                    cols.append(i)
-    return np.array(rows), np.array(cols), np.array(data)
+    matching = np.abs(numbers_1[:, None] - numbers_1[None, :]) <= tolerance
+    rows, cols = np.nonzero(matching)
+    return rows, cols, np.full_like(rows, True)
 
-
-@numba.njit
 def number_matching_ppm(numbers_1, numbers_2, tolerance_ppm):
     """Find all pairs between numbers_1 and numbers_2 which are within tolerance.
     """
-    rows = []
-    cols = []
-    data = []
-    for i, number_1 in enumerate(numbers_1):
-        for j, number_2 in enumerate(numbers_2):
-            mean_value = (number_1 + number_2)/2
-            value = (abs(number_1 - number_2)/mean_value * 1e6 <= tolerance_ppm)
-            if value:
-                data.append(value)
-                rows.append(i)
-                cols.append(j)
-    return np.array(rows), np.array(cols), np.array(data)
+    pairwise_diff = numbers_1[:, None] - numbers_2[None, :]
+    pairwise_mean = numbers_1[:, None]*.5 + numbers_2[None, :]*.5
+    pairwise_ppm = np.abs(pairwise_diff)/pairwise_mean * 1e6 <= tolerance_ppm
+    rows, cols = np.nonzero(pairwise_ppm)
+    return rows, cols, np.full_like(rows, True)
 
-
-@numba.njit
 def number_matching_symmetric_ppm(numbers_1, tolerance_ppm):
     """Find all pairs between numbers_1 and numbers_1 which are within tolerance.
     """
-    rows = []
-    cols = []
-    data = []
-    for i, number_1 in enumerate(numbers_1):
-        for j in range(i, len(numbers_1)):
-            mean_value = (number_1 + numbers_1[j])/2
-            value = (abs(number_1 - numbers_1[j])/mean_value * 1e6 <= tolerance_ppm)
-            if value:
-                data.append(value)
-                rows.append(i)
-                cols.append(j)
-                if i != j:
-                    data.append(value)
-                    rows.append(j)
-                    cols.append(i)
-    return np.array(rows), np.array(cols), np.array(data)
+    pairwise_diff = numbers_1[:, None] - numbers_1[None, :]
+    pairwise_mean = numbers_1[:, None]*.5 + numbers_1[None, :]*.5
+    pairwise_ppm = np.abs(pairwise_diff)/pairwise_mean * 1e6 <= tolerance_ppm
+    rows, cols = np.nonzero(pairwise_ppm)
+    return rows, cols, np.full_like(rows, True)

@@ -20,7 +20,10 @@ def spectra():
 def get_function(numba_compiled, f):
     if numba_compiled:
         return f
-    return f.py_func
+    try:
+        return f
+    except:
+        return f
 
 
 @pytest.mark.parametrize("numba_compiled", [True, False])
@@ -84,7 +87,7 @@ def test_number_matching(numba_compiled):
     if numba_compiled:
         row, col, scores = number_matching(precursors_ref, precursors_query, tolerance=2.0)
     else:
-        row, col, scores = number_matching.py_func(precursors_ref, precursors_query, tolerance=2.0)
+        row, col, scores = number_matching(precursors_ref, precursors_query, tolerance=2.0)
     assert np.all(scores == np.array([True, True])), "Expected different scores."
     assert np.all(row == np.array([0, 2]))
     assert np.all(col == np.array([0, 1]))
@@ -97,7 +100,7 @@ def test_number_matching_symmetric(numba_compiled):
     if numba_compiled:
         row, col, scores = number_matching_symmetric(precursors, tolerance=2.0)
     else:
-        row, col, scores = number_matching_symmetric.py_func(precursors, tolerance=2.0)
+        row, col, scores = number_matching_symmetric(precursors, tolerance=2.0)
     assert np.all(scores == np.array([True, True, True, True, True])), "Expected different scores."
     assert np.all(row == np.array([0, 0, 1, 1, 2]))
     assert np.all(col == np.array([0, 1, 0, 1, 2]))
@@ -111,7 +114,7 @@ def test_number_matching_ppm(numba_compiled):
     if numba_compiled:
         row, col, scores = number_matching_ppm(precursors_ref, precursors_query, tolerance_ppm=2.0)
     else:
-        row, col, scores = number_matching_ppm.py_func(precursors_ref, precursors_query, tolerance_ppm=2.0)
+        row, col, scores = number_matching_ppm(precursors_ref, precursors_query, tolerance_ppm=2.0)
     assert np.all(scores == np.array([True, True])), "Expected different scores."
     assert np.all(row == np.array([0, 2]))
     assert np.all(col == np.array([0, 1]))
@@ -124,7 +127,7 @@ def test_number_matching_symmetric_ppm(numba_compiled):
     if numba_compiled:
         row, col, scores = number_matching_symmetric_ppm(precursors, tolerance_ppm=2.0)
     else:
-        row, col, scores = number_matching_symmetric_ppm.py_func(precursors,  tolerance_ppm=2.0)
+        row, col, scores = number_matching_symmetric_ppm(precursors,  tolerance_ppm=2.0)
     assert np.all(scores == np.array([True, True, True, True, True])), "Expected different scores."
     assert np.all(row == np.array([0, 0, 1, 1, 2]))
     assert np.all(col == np.array([0, 1, 0, 1, 2]))
