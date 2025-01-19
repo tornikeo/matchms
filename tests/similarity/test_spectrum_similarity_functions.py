@@ -7,7 +7,15 @@ from matchms.similarity.spectrum_similarity_functions import (
     number_matching_symmetric, number_matching_symmetric_ppm,
     score_best_matches)
 from ..builder_Spectrum import SpectrumBuilder
+from joblib import Memory
 
+memory = Memory(location="cache")
+@pytest.fixture(scope="session")
+@memory.cache(verbose=0)
+def gnps():
+    from matchms.importing import load_from_mgf
+    spectra = tuple(load_from_mgf('/home/tornikeo/Documents/work/scalexa/pangeaai/optimize-cosine/data/GNPS-random-10k.mgf'))
+    return spectra
 
 @pytest.fixture
 def spectra():
@@ -42,6 +50,36 @@ def test_collect_peak_pairs(numba_compiled, shift, expected_pairs, expected_matc
         assert np.allclose(matching_pairs, np.array(expected_pairs), atol=1e-8), "Expected different values."
     else:
         assert matching_pairs is None, "Expected pairs to be None."
+
+# @pytest.mark.parametrize("numba_compiled", [True, False])
+# @pytest.mark.parametrize("shift, expected_pairs, expected_matches", [
+#     (0.0, [[2., 2., 1.], [3., 3., 1.]], (2, 3)),
+#     (-5.0, [[0., 0., 0.01], [1., 1., 0.01]], (2, 3)),
+#     (-20.0, None, None)
+# ])
+from matchms.similarity import ModifiedCosine
+from cProfile import Profile
+from pstats import Stats
+
+def test_perf_collect_peak_pairs(gnps):
+    """Test finding expected peak matches for given tolerance."""
+    N = 128
+    spec1, spec2 = gnps[:N], gnps[:N]
+    prof = Profile()
+    prof.enable()
+    ModifiedCosine().matrix(spec1, spec2)
+    prof.disable()
+    prof.dump_stats('mystats.stats')
+
+    # func = get_function(True, collect_peak_pairs)
+    # matching_pairs = func(spec1, spec2, tolerance=0.2, shift=0)
+
+    # if expected_matches is not None:
+    #     matching_pairs = np.array(matching_pairs)
+    #     assert matching_pairs.shape == expected_matches, "Expected different number of matching peaks"
+    #     assert np.allclose(matching_pairs, np.array(expected_pairs), atol=1e-8), "Expected different values."
+    # else:
+    #     assert matching_pairs is None, "Expected pairs to be None."
 
 
 @pytest.mark.parametrize("numba_compiled", [True, False])
