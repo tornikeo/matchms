@@ -98,11 +98,11 @@ class NeutralLossesCosine(BaseSimilarity):
         precursor_mz_query = get_valid_precursor_mz(query)
         mass_shift = precursor_mz_ref - precursor_mz_query
 
-        spec1 = reference.peaks.to_numpy
-        spec2 = query.peaks.to_numpy
+        spec1 = np.ascontiguousarray(reference.peaks.to_numpy.T)
+        spec2 = np.ascontiguousarray(query.peaks.to_numpy.T)
         if self.ignore_peaks_above_precursor:
-            spec1 = spec1[np.where(spec1[:, 0] < precursor_mz_ref)]
-            spec2 = spec2[np.where(spec2[:, 0] < precursor_mz_query)]
+            spec1 = spec1[:, np.where(spec1[:, 0] < precursor_mz_ref)]
+            spec2 = spec2[:, np.where(spec2[:, 0] < precursor_mz_query)]
         matching_pairs = get_matching_pairs()
         if matching_pairs is None:
             return np.asarray((float(0), 0), dtype=self.score_datatype)

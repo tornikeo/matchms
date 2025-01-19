@@ -34,10 +34,7 @@ def collect_peak_pairs(spec1: np.ndarray, spec2: np.ndarray,
     matches = find_matches(spec1[0, :], spec2[0, :], tolerance, shift)
     if len(matches) == 0:
         return None
-    # idx1 = [x[0] for x in matches]
-    # idx2 = [x[1] for x in matches]
     matching_pairs = []
-    # for i, idx in enumerate(idx1):
     for i, j in matches:
         power_prod_spec1 = (spec1[0, i] ** mz_power) * (spec1[1, i] ** intensity_power)
         power_prod_spec2 = (spec2[0, j] ** mz_power) * (spec2[1, j] ** intensity_power)
@@ -103,8 +100,8 @@ def score_best_matches(matching_pairs: np.ndarray, spec1: np.ndarray,
             used_matches += 1
 
     # Normalize score:
-    spec1_power = spec1[:, 0] ** mz_power * spec1[:, 1] ** intensity_power
-    spec2_power = spec2[:, 0] ** mz_power * spec2[:, 1] ** intensity_power
+    spec1_power = spec1[0, :] ** mz_power * spec1[1, :] ** intensity_power
+    spec2_power = spec2[0, :] ** mz_power * spec2[1, :] ** intensity_power
 
     score = score/(np.sum(spec1_power ** 2) ** 0.5 * np.sum(spec2_power ** 2) ** 0.5)
     return score, used_matches

@@ -93,8 +93,8 @@ class CosineGreedy(BaseSimilarity):
             matching_pairs = matching_pairs[np.argsort(matching_pairs[:, 2], kind='mergesort')[::-1], :]
             return matching_pairs
 
-        spec1 = reference.peaks.to_numpy
-        spec2 = query.peaks.to_numpy
+        spec1 = np.ascontiguousarray(reference.peaks.to_numpy.T)
+        spec2 = np.ascontiguousarray(query.peaks.to_numpy.T)
         matching_pairs = get_matching_pairs()
         if matching_pairs is None:
             return np.asarray((float(0), 0), dtype=self.score_datatype)

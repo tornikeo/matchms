@@ -106,7 +106,9 @@ def test_score_best_matches(numba_compiled, matching_pairs, expected_score, spec
     """Test finding expected peak matches for given tolerance."""
     matching_pairs = np.array(matching_pairs)
     spec1, spec2 = spectra
-
+    spec1 = np.ascontiguousarray(spec1.T)
+    spec2 = np.ascontiguousarray(spec2.T)
+    
     func = get_function(numba_compiled, score_best_matches)
 
     score, matches = func(matching_pairs, spec1, spec2)
